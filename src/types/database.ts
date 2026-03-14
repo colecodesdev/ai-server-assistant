@@ -29,6 +29,8 @@ export interface Restaurant {
   phone: string | null;
   email: string | null;
   website: string | null;
+  cross_contamination_disclaimer: string | null;
+  metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }
@@ -39,6 +41,7 @@ export interface KeyPerson {
   name: string;
   role: string;
   bio: string | null;
+  is_public: boolean;
   sort_order: number;
 }
 
@@ -167,73 +170,89 @@ export interface Database {
         Row: Restaurant;
         Insert: Omit<Restaurant, "id" | "created_at" | "updated_at">;
         Update: Partial<Omit<Restaurant, "id" | "created_at" | "updated_at">>;
+        Relationships: [];
       };
       key_people: {
         Row: KeyPerson;
         Insert: Omit<KeyPerson, "id">;
         Update: Partial<Omit<KeyPerson, "id">>;
+        Relationships: [];
       };
       service_settings: {
         Row: ServiceSetting;
         Insert: Omit<ServiceSetting, "id">;
         Update: Partial<Omit<ServiceSetting, "id">>;
+        Relationships: [];
       };
       menus: {
         Row: Menu;
         Insert: Omit<Menu, "id">;
         Update: Partial<Omit<Menu, "id">>;
+        Relationships: [];
       };
       menu_service_settings: {
         Row: MenuServiceSetting;
         Insert: MenuServiceSetting;
         Update: Partial<MenuServiceSetting>;
+        Relationships: [];
       };
       menu_categories: {
         Row: MenuCategory;
         Insert: Omit<MenuCategory, "id">;
         Update: Partial<Omit<MenuCategory, "id">>;
+        Relationships: [];
       };
       menu_items: {
         Row: MenuItem;
         Insert: Omit<MenuItem, "id" | "created_at" | "updated_at">;
         Update: Partial<Omit<MenuItem, "id" | "created_at" | "updated_at">>;
+        Relationships: [];
       };
       allergens: {
         Row: Allergen;
         Insert: Omit<Allergen, "id">;
         Update: Partial<Omit<Allergen, "id">>;
+        Relationships: [];
       };
       dietary_tags: {
         Row: DietaryTag;
         Insert: Omit<DietaryTag, "id">;
         Update: Partial<Omit<DietaryTag, "id">>;
+        Relationships: [];
       };
       item_allergens: {
         Row: ItemAllergen;
         Insert: Omit<ItemAllergen, "id">;
         Update: Partial<Omit<ItemAllergen, "id">>;
+        Relationships: [];
       };
       item_dietary_tags: {
         Row: ItemDietaryTag;
         Insert: Omit<ItemDietaryTag, "id">;
         Update: Partial<Omit<ItemDietaryTag, "id">>;
+        Relationships: [];
       };
       item_pairings: {
         Row: ItemPairing;
         Insert: Omit<ItemPairing, "id">;
         Update: Partial<Omit<ItemPairing, "id">>;
+        Relationships: [];
       };
       item_staff_notes: {
         Row: ItemStaffNote;
         Insert: Omit<ItemStaffNote, "id">;
         Update: Partial<Omit<ItemStaffNote, "id">>;
+        Relationships: [];
       };
       users: {
         Row: User;
         Insert: User;
         Update: Partial<User>;
+        Relationships: [];
       };
     };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
     Enums: {
       user_role: UserRole;
       allergen_status: AllergenStatus;
@@ -241,5 +260,6 @@ export interface Database {
       pairing_type: PairingType;
       staff_note_type: StaffNoteType;
     };
+    CompositeTypes: Record<string, never>;
   };
 }

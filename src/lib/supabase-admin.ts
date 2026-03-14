@@ -1,10 +1,12 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/types/database";
 
 /**
  * Admin client using the service role key.
  * ONLY use server-side (API routes, seed scripts).
  * Bypasses RLS — never expose to the browser.
+ *
+ * Note: Uses untyped client to avoid compatibility issues with
+ * Supabase JS v2.99 type inference. Runtime behavior is identical.
  */
 export function createAdminClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -16,7 +18,7 @@ export function createAdminClient() {
     );
   }
 
-  return createSupabaseClient<Database>(supabaseUrl, serviceRoleKey, {
+  return createSupabaseClient(supabaseUrl, serviceRoleKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
