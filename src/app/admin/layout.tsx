@@ -1,44 +1,24 @@
 "use client";
 
-import { useAuth } from "@/components/providers/auth-provider";
 import { AppNav } from "@/components/navigation/app-nav";
 
+/**
+ * Admin layout — renders immediately.
+ *
+ * Route protection is handled by middleware (src/middleware.ts) which
+ * validates the session cookie and checks the admin role server-side
+ * BEFORE this layout ever mounts.  There is no need to duplicate that
+ * check client-side; doing so introduced race conditions between the
+ * server-validated cookie and the client-side Supabase auth hydration.
+ *
+ * The AuthProvider still hydrates in the background so that AppNav can
+ * show the user email / role and the Sign Out button works.
+ */
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { isLoading, user, role } = useAuth();
-  console.log("Admin layout state:", { isLoading, user: !!user, role });
-
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0a1628]">
-        <div className="text-white/40 text-sm">Loading…</div>
-      </div>
-    );
-  }
-
-  // Middleware handles redirect, but client-side fallback
-  if (!user || role !== "admin") {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0a1628]">
-        <div className="text-center">
-          <p className="text-white/50 text-sm mb-2">Admin access required</p>
-          <p className="text-white/30 text-xs mb-4">
-            You need an admin account to access this area.
-          </p>
-          <a
-            href="/auth/login"
-            className="rounded-lg bg-[#c4956a] px-6 py-2 text-sm font-medium text-[#0a1628]"
-          >
-            Sign In
-          </a>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex min-h-screen flex-col bg-[#0a1628]">
       <AppNav />

@@ -64,13 +64,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [state.user]);
 
   useEffect(() => {
-    let initialDone = false;
+    let mounted = true;
 
-    // Listen for auth changes (includes INITIAL_SESSION event)
+    // Use onAuthStateChange as the single source of truth.
+    // INITIAL_SESSION fires synchronously after subscribe with the
+    // session from storage (and triggers a background token refresh
+    // if needed).  Subsequent events handle sign-in / sign-out / refresh.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth event:", event, "user:", !!session?.user);
+      if (!mounted) return;
 
       const user = session?.user ?? null;
       let role: UserRole | null = null;
@@ -79,19 +82,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role = await fetchRole(user.id);
       }
 
-      setState({ user, session, role, isLoading: false });
-      initialDone = true;
+      if (mounted) {
+        setState({ user, session, role, isLoading: false });
+      }
     });
 
-    // Safety net: if onAuthStateChange doesn't fire within 3s, unblock the UI
+    // Safety net: if onAuthStateChange never fires (rare edge case),
+    // unblock after 5 seconds so the UI isn't stuck forever.
     const timeout = setTimeout(() => {
-      if (!initialDone) {
-        console.warn("Auth timeout — unblocking UI");
-        setState((prev) => (prev.isLoading ? { ...prev, isLoading: false } : prev));
+      if (mounted) {
+        setState((prev) =>
+          prev.isLoading ? { ...prev, isLoading: false } : prev
+        );
       }
-    }, 3000);
+    }, 5000);
 
     return () => {
+      mounted = false;
       clearTimeout(timeout);
       subscription.unsubscribe();
     };
@@ -111,9 +118,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    // Clear client-side session (localStorage / memory)
     await supabase.auth.signOut();
     setState({ user: null, session: null, role: null, isLoading: false });
-    window.location.href = "/";
+
+    // Hit the server route to clear httpOnly session cookies,
+    // then redirect to home.
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = "/auth/signout";
+    document.body.appendChild(form);
+    form.submit();
   };
 
   return (
