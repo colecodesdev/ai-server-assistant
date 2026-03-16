@@ -19,7 +19,7 @@ export async function PUT(
       .eq("item_id", id);
 
     if (deleteError) {
-      return NextResponse.json({ error: deleteError.message }, { status: 500 });
+      return NextResponse.json({ error: "Database query failed" }, { status: 500 });
     }
 
     if (!allergens || allergens.length === 0) {
@@ -41,7 +41,7 @@ export async function PUT(
       .select();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: "Database query failed" }, { status: 500 });
     }
 
     return NextResponse.json(data);

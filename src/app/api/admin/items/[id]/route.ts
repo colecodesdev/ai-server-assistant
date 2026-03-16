@@ -29,7 +29,7 @@ export async function GET(
 
     if (itemResult.error) {
       return NextResponse.json(
-        { error: itemResult.error.message },
+        { error: "Database query failed" },
         { status: 500 }
       );
     }
@@ -67,7 +67,7 @@ export async function PUT(
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: "Database query failed" }, { status: 500 });
     }
 
     return NextResponse.json(data);
@@ -94,7 +94,7 @@ export async function DELETE(
       .eq("id", id);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: "Database query failed" }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });

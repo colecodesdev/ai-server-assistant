@@ -119,7 +119,7 @@ export async function PUT(
 
       if (deleteError) {
         return NextResponse.json(
-          { error: deleteError.message },
+          { error: "Database query failed" },
           { status: 500 }
         );
       }
@@ -136,7 +136,7 @@ export async function PUT(
 
         if (insertError) {
           return NextResponse.json(
-            { error: insertError.message },
+            { error: "Database query failed" },
             { status: 500 }
           );
         }
@@ -166,7 +166,7 @@ export async function DELETE(
     const { error } = await admin.from("menus").delete().eq("id", id);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: "Database query failed" }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });

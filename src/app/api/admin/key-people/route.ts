@@ -13,7 +13,7 @@ export async function GET() {
       .order("sort_order");
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: "Database query failed" }, { status: 500 });
     }
 
     return NextResponse.json(key_people);
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: "Database query failed" }, { status: 500 });
     }
 
     return NextResponse.json(person, { status: 201 });
