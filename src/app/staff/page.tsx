@@ -14,11 +14,6 @@ export default function StaffPage() {
           <span className="text-white/50">
             {user?.email?.split("@")[0] ?? "team member"}
           </span>
-          {role && (
-            <span className="ml-2 font-heading text-[10px] uppercase tracking-wider text-[#c4956a]/50">
-              {role}
-            </span>
-          )}
         </span>
       </div>
       <ChatInterface mode="staff" />
