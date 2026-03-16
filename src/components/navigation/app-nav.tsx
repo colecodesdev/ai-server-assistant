@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -36,11 +37,14 @@ export function AppNav() {
     <nav className="flex h-14 items-center justify-between border-b border-white/10 bg-[#0d1f35] px-4">
       {/* Left: branding + nav links */}
       <div className="flex items-center gap-6">
-        <Link
-          href={isAdmin ? "/admin" : "/staff"}
-          className="font-heading text-sm font-medium uppercase tracking-[0.2em] text-[#c4956a]"
-        >
-          OFHS
+        <Link href={isAdmin ? "/admin" : "/staff"}>
+          <Image
+            src="/logo.png"
+            alt="Old Florida Fish House"
+            width={40}
+            height={40}
+            className="h-10 w-auto"
+          />
         </Link>
 
         <div className="flex items-center gap-1">
@@ -94,7 +98,7 @@ export function AppNav() {
         </div>
         <button
           onClick={() => signOut()}
-          className="rounded-md px-3 py-1.5 text-xs text-white/40 transition-colors hover:bg-white/5 hover:text-white/70"
+          className="rounded-md border border-white/10 px-2.5 py-1 text-xs text-white/40 transition-colors hover:border-white/20 hover:text-white/70"
         >
           Sign Out
         </button>

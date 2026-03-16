@@ -13,7 +13,7 @@ export default function ChatLayout({
 }) {
   return (
     <div className="flex min-h-screen min-h-dvh flex-col bg-[#0a1628]">
-      <main className="flex flex-1 flex-col">{children}</main>
+      <main className="flex flex-1 flex-col pt-[140px]">{children}</main>
     </div>
   );
 }
