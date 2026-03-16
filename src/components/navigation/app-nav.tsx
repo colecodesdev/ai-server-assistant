@@ -19,6 +19,7 @@ const adminNav: NavItem[] = [
   { label: "Menus", href: "/admin/menus", icon: "📋" },
   { label: "Items", href: "/admin/items", icon: "🍽️" },
   { label: "Restaurant", href: "/admin/restaurant", icon: "🏠" },
+  { label: "QR Code", href: "/admin/qr", icon: "📱" },
 ];
 
 export function AppNav() {

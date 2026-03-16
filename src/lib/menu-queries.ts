@@ -158,6 +158,32 @@ export async function getMenuOverview(): Promise<MenuOverviewEntry[]> {
 }
 
 /**
+ * All active items with name, price, and category/menu context.
+ * Used for price-range queries when no specific menu is targeted.
+ */
+export async function getAllActiveItems(): Promise<ItemResult[]> {
+  try {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+      .from("menu_items")
+      .select("*, menu_categories!inner(name, menus!inner(name))")
+      .eq("is_active", true)
+      .order("price");
+
+    if (error) {
+      console.error("getAllActiveItems error:", error);
+      return [];
+    }
+
+    return (data ?? []).map(mapItemRow);
+  } catch (err) {
+    console.error("getAllActiveItems error:", err);
+    return [];
+  }
+}
+
+/**
  * Full-text search on item_name, description_short, ingredients_high_level.
  */
 export async function searchItemsByKeyword(keyword: string): Promise<ItemResult[]> {

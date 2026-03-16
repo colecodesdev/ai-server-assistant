@@ -5,6 +5,7 @@ import {
   getItemsByMenu,
   getServiceSettings,
   getMenuOverview,
+  getAllActiveItems,
   type ItemResult,
   type AllergenResult,
   type DietaryTagResult,
@@ -139,6 +140,44 @@ const RESTAURANT_WORDS = [
   "how long", "when did",
 ];
 
+const COMPARISON_PATTERNS = [
+  "difference between",
+  "compare",
+  " vs ",
+  " versus ",
+  "which is better",
+  "which one",
+  "what's better",
+  "what is better",
+];
+
+const PRICE_WORDS = [
+  "cheap", "cheapest", "affordable", "budget", "value",
+  "expensive", "priciest", "most expensive", "splurge",
+  "best deal", "good deal", "worth it", "bang for",
+  "least expensive", "cost", "price range",
+];
+
+const OUT_OF_SCOPE_WORDS = [
+  "reservation", "reservations", "book a table", "make a booking",
+  "directions", "how to get there", "where are you located", "how do i get",
+  "parking", "park", "valet",
+  "dress code", "what to wear",
+  "private event", "private dining", "party room",
+  "gift card", "gift certificate",
+  "lost and found", "lost item",
+  "job", "hiring", "employment", "apply", "application",
+];
+
+// Words that indicate the query IS food/menu-related (override out-of-scope)
+const FOOD_CONTEXT_WORDS = [
+  "menu", "food", "eat", "dish", "item", "order",
+  "allergen", "allergy", "gluten", "vegan", "vegetarian",
+  "price", "cost", "drink", "cocktail", "wine", "beer",
+  "sushi", "fish", "seafood", "appetizer", "dessert", "entree",
+  "recommend", "pair", "special",
+];
+
 // ─── Helpers ────────────────────────────────────────────
 
 function lower(s: string): string {
@@ -150,31 +189,29 @@ function containsAny(text: string, words: string[]): boolean {
   return words.some((w) => t.includes(lower(w)));
 }
 
-function findAllergen(text: string): { allergen: string; mode: "contains" | "free_of" } | null {
+function findAllergens(text: string): { allergen: string; mode: "contains" | "free_of" }[] {
   const t = lower(text);
-
-  // Check if it's an allergy-related message
   const hasAllergenTrigger = ALLERGEN_TRIGGER_WORDS.some((w) => t.includes(w));
+  const wantsContains = t.includes("contain") || t.includes("has ") || t.includes("have ");
+  const mode: "contains" | "free_of" = wantsContains && !hasAllergenTrigger ? "contains" : "free_of";
 
+  const found = new Map<string, "contains" | "free_of">();
   for (const [pattern, allergenName] of Object.entries(ALLERGEN_MAP)) {
-    if (t.includes(pattern)) {
-      // Determine mode: if they're asking about allergy/avoiding → free_of
-      // If they're asking "what contains shellfish" → contains
-      const wantsContains = t.includes("contain") || t.includes("has ") || t.includes("have ");
-      const mode = wantsContains && !hasAllergenTrigger ? "contains" : "free_of";
-      return { allergen: allergenName, mode };
+    if (t.includes(pattern) && !found.has(allergenName)) {
+      found.set(allergenName, mode);
     }
   }
 
-  return null;
+  return Array.from(found.entries()).map(([allergen, m]) => ({ allergen, mode: m }));
 }
 
-function findDietaryTag(text: string): string | null {
+function findDietaryTags(text: string): string[] {
   const t = lower(text);
+  const found = new Set<string>();
   for (const [pattern, tagName] of Object.entries(DIETARY_MAP)) {
-    if (t.includes(pattern)) return tagName;
+    if (t.includes(pattern)) found.add(tagName);
   }
-  return null;
+  return Array.from(found);
 }
 
 function findMenuNames(text: string): string[] {
@@ -206,6 +243,34 @@ function extractDishKeywords(text: string): string[] {
     .slice(0, 5); // Max 5 keywords
 }
 
+function isComparisonQuery(text: string): boolean {
+  const t = lower(text);
+  return COMPARISON_PATTERNS.some((p) => t.includes(p))
+    || /\b\w+\s+or\s+(?:the\s+)?\w+/i.test(text);
+}
+
+function extractComparisonItems(text: string): [string, string] | null {
+  const t = lower(text);
+
+  // "difference between X and Y"
+  const betweenMatch = t.match(/(?:difference|choose)\s+between\s+(?:the\s+)?(.+?)\s+and\s+(?:the\s+)?(.+?)(?:\?|$)/);
+  if (betweenMatch) return [betweenMatch[1].trim(), betweenMatch[2].trim()];
+
+  // "X vs Y" or "X versus Y"
+  const vsMatch = t.match(/(.+?)\s+(?:vs\.?|versus)\s+(.+?)(?:\?|$)/);
+  if (vsMatch) return [vsMatch[1].trim(), vsMatch[2].trim()];
+
+  // "X or Y" (with context words removed)
+  const orMatch = t.match(/(?:the\s+)?(.+?)\s+or\s+(?:the\s+)?(.+?)(?:\?|$)/);
+  if (orMatch) {
+    const a = orMatch[1].replace(/^(should i get|which is better|compare|what's better|what about)\s+/i, "").trim();
+    const b = orMatch[2].trim();
+    if (a.length >= 3 && b.length >= 3) return [a, b];
+  }
+
+  return null;
+}
+
 // ─── Main classifier ───────────────────────────────────
 
 export async function classifyAndFetchData(
@@ -217,29 +282,111 @@ export async function classifyAndFetchData(
 
   const includeStaffNotes = mode === "staff";
 
-  // 1. Allergen query
-  const allergenMatch = findAllergen(message);
-  if (allergenMatch && containsAny(message, [...ALLERGEN_TRIGGER_WORDS, ...Object.keys(ALLERGEN_MAP)])) {
-    intents.push(`allergen:${allergenMatch.allergen}:${allergenMatch.mode}`);
+  // 0. Out-of-scope detection (early exit)
+  if (containsAny(message, OUT_OF_SCOPE_WORDS) && !containsAny(message, FOOD_CONTEXT_WORDS)) {
+    return { intent: "out_of_scope", data: {} };
+  }
+
+  // 1. Allergen query (supports multiple allergens)
+  const allergenMatches = findAllergens(message);
+  if (allergenMatches.length > 0 && containsAny(message, [...ALLERGEN_TRIGGER_WORDS, ...Object.keys(ALLERGEN_MAP)])) {
     try {
-      data.allergenItems = await filterByAllergen(allergenMatch.allergen, allergenMatch.mode);
+      const allResults = await Promise.all(
+        allergenMatches.map((m) => filterByAllergen(m.allergen, m.mode))
+      );
+
+      if (allergenMatches.length === 1) {
+        intents.push(`allergen:${allergenMatches[0].allergen}:${allergenMatches[0].mode}`);
+        data.allergenItems = allResults[0];
+      } else {
+        // Multiple allergens — intersect results (items safe for ALL)
+        const intentLabel = allergenMatches.map((m) => m.allergen).join("+");
+        intents.push(`allergen:${intentLabel}:${allergenMatches[0].mode}`);
+
+        // Intersect: keep only items whose ID appears in every result set
+        const idSets = allResults.map((r) => new Set(r.map((item) => item.id)));
+        const intersection = allResults[0].filter((item) =>
+          idSets.every((s) => s.has(item.id))
+        );
+        data.allergenItems = intersection;
+      }
     } catch (err) {
       console.error("Allergen fetch error:", err);
     }
   }
 
-  // 2. Dietary query
-  const dietaryTag = findDietaryTag(message);
-  if (dietaryTag) {
-    intents.push(`dietary:${dietaryTag}`);
+  // 2. Comparison query
+  if (isComparisonQuery(message)) {
+    const pair = extractComparisonItems(message);
+    if (pair) {
+      intents.push("comparison");
+      try {
+        const [itemsA, itemsB] = await Promise.all([
+          getItemsByNameMatch([pair[0]], includeStaffNotes),
+          getItemsByNameMatch([pair[1]], includeStaffNotes),
+        ]);
+        const combined = [...itemsA, ...itemsB];
+        if (combined.length > 0) {
+          data.itemDetails = [...(data.itemDetails ?? []), ...combined];
+        }
+      } catch (err) {
+        console.error("Comparison fetch error:", err);
+      }
+    }
+  }
+
+  // 3. Price query
+  if (containsAny(message, PRICE_WORDS)) {
+    intents.push("price_query");
+    const priceMenuNames = findMenuNames(message);
     try {
-      data.dietaryItems = await filterByDietaryTag(dietaryTag);
+      if (priceMenuNames.length > 0) {
+        const overview = await getMenuOverview();
+        for (const menuName of priceMenuNames) {
+          const menu = overview.find((m) => lower(m.name) === lower(menuName));
+          if (menu) {
+            const menuData = await getItemsByMenu(menu.id);
+            data.menuItems = [...(data.menuItems ?? []), ...menuData];
+          }
+        }
+      } else {
+        // No specific menu — fetch all active items for price comparison
+        const results = await getAllActiveItems();
+        if (results.length > 0) {
+          data.items = [...(data.items ?? []), ...results];
+        }
+      }
+    } catch (err) {
+      console.error("Price query fetch error:", err);
+    }
+  }
+
+  // 4. Dietary query (supports multiple tags with intersection)
+  const dietaryTags = findDietaryTags(message);
+  if (dietaryTags.length > 0) {
+    try {
+      const allResults = await Promise.all(
+        dietaryTags.map((tag) => filterByDietaryTag(tag))
+      );
+
+      if (dietaryTags.length === 1) {
+        intents.push(`dietary:${dietaryTags[0]}`);
+        data.dietaryItems = allResults[0];
+      } else {
+        // Multiple dietary tags — intersect results
+        intents.push(`dietary:${dietaryTags.join("+")}`);
+        const idSets = allResults.map((r) => new Set(r.map((item) => item.id)));
+        const intersection = allResults[0].filter((item) =>
+          idSets.every((s) => s.has(item.id))
+        );
+        data.dietaryItems = intersection;
+      }
     } catch (err) {
       console.error("Dietary fetch error:", err);
     }
   }
 
-  // 3. Menu browse
+  // 5. Menu browse
   const menuNames = findMenuNames(message);
   if (menuNames.length > 0) {
     // Find menu IDs from overview
@@ -260,7 +407,7 @@ export async function classifyAndFetchData(
     }
   }
 
-  // 4. Pairing question
+  // 6. Pairing question
   if (containsAny(message, PAIRING_WORDS)) {
     intents.push("pairing");
     const keywords = extractDishKeywords(message);
@@ -281,7 +428,7 @@ export async function classifyAndFetchData(
     }
   }
 
-  // 5. Service setting query
+  // 7. Service setting query
   if (containsAny(message, SERVICE_WORDS)) {
     intents.push("service_settings");
     try {
@@ -291,13 +438,13 @@ export async function classifyAndFetchData(
     }
   }
 
-  // 6. Restaurant info
+  // 8. Restaurant info
   if (containsAny(message, RESTAURANT_WORDS)) {
     intents.push("restaurant_info");
     // No additional fetch needed — restaurant context is already in the system prompt
   }
 
-  // 7. Specific item search (if no other data intents matched, or as supplement)
+  // 9. Specific item search (if no other data intents matched, or as supplement)
   const hasDataIntents = (data.allergenItems?.length ?? 0) > 0
     || (data.dietaryItems?.length ?? 0) > 0
     || (data.menuItems?.length ?? 0) > 0

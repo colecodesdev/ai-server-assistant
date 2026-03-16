@@ -4,6 +4,7 @@ import { createAnthropicClient } from "@/lib/anthropic";
 import { getRestaurantContext, getMenuOverview } from "@/lib/menu-queries";
 import { buildSystemPrompt, formatItemsForPrompt, type ChatMode } from "@/lib/system-prompt";
 import { classifyAndFetchData } from "@/lib/intent-classifier";
+import { checkRateLimit } from "@/lib/rate-limiter";
 import type { ItemDetail } from "@/lib/menu-queries";
 
 // ─── Types ──────────────────────────────────────────────
@@ -12,6 +13,7 @@ interface ChatRequest {
   message: string;
   conversationHistory: Array<{ role: "user" | "assistant"; content: string }>;
   mode: ChatMode;
+  stream?: boolean;
 }
 
 // ─── Helper: convert item results to ItemDetail-like objects for formatting ──
@@ -46,6 +48,23 @@ function itemResultsToDetails(
 
 export async function POST(request: NextRequest) {
   try {
+    // ── Step 0: Rate limiting ───────────────────────────────
+    const ip =
+      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      request.headers.get("x-real-ip") ||
+      "unknown";
+    const rateLimit = checkRateLimit(ip, 20, 60_000);
+    if (!rateLimit.allowed) {
+      const retryAfter = Math.ceil((rateLimit.resetAt - Date.now()) / 1000);
+      return NextResponse.json(
+        { error: "Too many requests. Please wait a moment before sending another message." },
+        {
+          status: 429,
+          headers: { "Retry-After": String(retryAfter) },
+        }
+      );
+    }
+
     // ── Step 1: Validate request ──────────────────────────
     let body: ChatRequest;
     try {
@@ -57,7 +76,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { message, conversationHistory, mode } = body;
+    const { message, conversationHistory, mode, stream: useStreaming } = body;
 
     if (!message || typeof message !== "string" || !message.trim()) {
       return NextResponse.json(
@@ -224,7 +243,61 @@ export async function POST(request: NextRequest) {
 
     // ── Step 7: Call Claude API ────────────────────────────
     const anthropic = createAnthropicClient();
+    const intentLabel = classification.intent;
 
+    if (useStreaming) {
+      // ── Streaming mode: return SSE stream ───────────────
+      const stream = anthropic.messages.stream({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages,
+      });
+
+      const encoder = new TextEncoder();
+      const readable = new ReadableStream({
+        async start(controller) {
+          try {
+            for await (const event of stream) {
+              if (
+                event.type === "content_block_delta" &&
+                event.delta.type === "text_delta"
+              ) {
+                const payload = JSON.stringify({
+                  type: "delta",
+                  text: event.delta.text,
+                });
+                controller.enqueue(
+                  encoder.encode(`data: ${payload}\n\n`)
+                );
+              }
+            }
+            // Send final done event with intent
+            const done = JSON.stringify({ type: "done", intent: intentLabel });
+            controller.enqueue(encoder.encode(`data: ${done}\n\n`));
+            controller.close();
+          } catch (err) {
+            console.error("Stream error:", err);
+            const errPayload = JSON.stringify({
+              type: "error",
+              text: "An error occurred while generating the response.",
+            });
+            controller.enqueue(encoder.encode(`data: ${errPayload}\n\n`));
+            controller.close();
+          }
+        },
+      });
+
+      return new Response(readable, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        },
+      });
+    }
+
+    // ── Non-streaming mode: return JSON ─────────────────
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
       max_tokens: 1024,
@@ -238,7 +311,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       response: responseText,
-      intent: classification.intent,
+      intent: intentLabel,
     });
   } catch (err) {
     console.error("Chat API error:", err);

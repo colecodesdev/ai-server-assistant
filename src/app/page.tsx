@@ -27,7 +27,7 @@ export default function Home() {
   }, [cyclePhrase]);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#0a1628] px-4">
+    <div className="flex min-h-dvh flex-col items-center justify-center bg-[#0a1628] px-4">
       <div className="flex flex-col text-center">
         {/* Branding */}
         <h1 className="uppercase mb-4 font-heading text-4xl font-medium tracking-tight text-white sm:text-5xl">
@@ -47,7 +47,7 @@ export default function Home() {
           Got Questions?
         </a>
 
-        {/* Staff sign in */}
+        {/* Staff sign in
         <div className="flex flex-col items-center gap-3 sm:justify-center">
           <a
             href="/portal"
@@ -55,7 +55,7 @@ export default function Home() {
           >
             Explore Our Menu
           </a>
-        </div>
+        </div> */}
 
       </div>
     </div>

@@ -37,7 +37,7 @@ export default function PortalPage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0a1628]">
+      <div className="flex min-h-screen min-h-dvh items-center justify-center bg-[#0a1628]">
         <div className="text-sm text-white/30">Loading…</div>
       </div>
     );
@@ -45,7 +45,7 @@ export default function PortalPage() {
 
   if (!user) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0a1628]">
+      <div className="flex min-h-screen min-h-dvh items-center justify-center bg-[#0a1628]">
         <div className="text-sm text-white/30">Redirecting…</div>
       </div>
     );
@@ -53,7 +53,7 @@ export default function PortalPage() {
 
   if (!role) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-[#0a1628] px-4">
+      <div className="flex min-h-screen min-h-dvh flex-col items-center justify-center bg-[#0a1628] px-4">
         <h1 className="mb-2 font-heading text-2xl font-medium text-white">
           No Access
         </h1>
@@ -65,7 +65,7 @@ export default function PortalPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#0a1628] px-4">
+    <div className="flex min-h-screen min-h-dvh flex-col items-center justify-center bg-[#0a1628] px-4">
       <div className="flex flex-col items-center text-center">
         {/* Branding */}
         <h1 className="mb-4 font-heading text-4xl font-medium uppercase tracking-tight text-white sm:text-5xl">
