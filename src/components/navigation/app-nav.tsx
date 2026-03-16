@@ -23,10 +23,12 @@ const adminNav: NavItem[] = [
 
 export function AppNav() {
   const pathname = usePathname();
-  const { user, role, signOut } = useAuth();
+  const { user, role, isLoading, signOut } = useAuth();
 
-  const isAdmin = role === "admin";
   const isAdminSection = pathname.startsWith("/admin");
+  // While auth is loading, infer role from the current route (middleware already validated)
+  const effectiveRole = role ?? (isAdminSection ? "admin" : "staff");
+  const isAdmin = effectiveRole === "admin";
   const navItems = isAdminSection ? adminNav : staffNav;
 
   return (
@@ -78,10 +80,16 @@ export function AppNav() {
       {/* Right: user info + sign out */}
       <div className="flex items-center gap-4">
         <div className="text-right">
-          <div className="text-xs text-white/40">{user?.email}</div>
-          <div className="font-heading text-[10px] font-medium uppercase tracking-wider text-[#c4956a]/70">
-            {role}
-          </div>
+          {isLoading ? (
+            <div className="h-3 w-24 animate-pulse rounded bg-white/10" />
+          ) : (
+            <>
+              <div className="text-xs text-white/40">{user?.email}</div>
+              <div className="font-heading text-[10px] font-medium uppercase tracking-wider text-[#c4956a]/70">
+                {effectiveRole}
+              </div>
+            </>
+          )}
         </div>
         <button
           onClick={() => signOut()}

@@ -38,7 +38,7 @@ export async function POST(request: Request) {
 
     // Get the restaurant_id (single-restaurant setup)
     const { data: restaurant, error: restError } = await admin
-      .from("restaurants")
+      .from("restaurant")
       .select("id")
       .single();
 

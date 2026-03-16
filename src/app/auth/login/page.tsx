@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useRef, type FormEvent } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
 
 export default function LoginPage() {
@@ -9,8 +8,30 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const router = useRouter();
-  const { signIn } = useAuth();
+  const [expired, setExpired] = useState(false);
+  const { signIn, role, user } = useAuth();
+  const justSignedIn = useRef(false);
+
+  // Check for session expiry redirect
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("expired") === "1") {
+      setExpired(true);
+      // Clean up URL
+      window.history.replaceState({}, "", "/auth/login");
+    }
+  }, []);
+
+  // After sign-in, the auth provider will update with the user's role.
+  // Redirect based on role using a full navigation so middleware sets cookies.
+  useEffect(() => {
+    if (!justSignedIn.current || !user || !role) return;
+    if (role === "admin") {
+      window.location.href = "/admin";
+    } else {
+      window.location.href = "/staff";
+    }
+  }, [user, role]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -25,9 +46,9 @@ export default function LoginPage() {
       return;
     }
 
-    // Redirect will be handled by middleware based on role
-    router.push("/");
-    router.refresh();
+    justSignedIn.current = true;
+    // Auth provider's onAuthStateChange will fire and update user/role,
+    // which triggers the useEffect redirect above.
   }
 
   return (
@@ -87,6 +108,12 @@ export default function LoginPage() {
                 placeholder="••••••••"
               />
             </div>
+
+            {expired && !error && (
+              <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-300">
+                Your session has expired. Please sign in again.
+              </div>
+            )}
 
             {error && (
               <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">

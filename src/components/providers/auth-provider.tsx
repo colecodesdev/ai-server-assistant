@@ -21,7 +21,7 @@ interface AuthState {
 
 interface AuthContextValue extends AuthState {
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
-  signOut: () => Promise<void>;
+  signOut: () => void;
   refreshRole: () => Promise<void>;
 }
 
@@ -30,19 +30,12 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 // Stable singleton — avoids re-creating the client on every render
 const supabase = createClient();
 
-async function fetchRole(userId: string): Promise<UserRole | null> {
+async function fetchRole(): Promise<UserRole | null> {
   try {
-    const { data, error } = await supabase
-      .from("users")
-      .select("role")
-      .eq("id", userId)
-      .single();
-
-    if (error || !data) {
-      console.error("fetchRole query error:", error);
-      return null;
-    }
-    return data.role as UserRole;
+    const res = await fetch("/api/me");
+    if (!res.ok) return null;
+    const { role } = await res.json();
+    return role ?? null;
   } catch (err) {
     console.error("fetchRole error:", err);
     return null;
@@ -59,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshRole = useCallback(async () => {
     if (!state.user) return;
-    const role = await fetchRole(state.user.id);
+    const role = await fetchRole();
     setState((prev) => ({ ...prev, role }));
   }, [state.user]);
 
@@ -72,18 +65,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // if needed).  Subsequent events handle sign-in / sign-out / refresh.
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!mounted) return;
 
       const user = session?.user ?? null;
-      let role: UserRole | null = null;
 
       if (user) {
-        role = await fetchRole(user.id);
-      }
-
-      if (mounted) {
-        setState({ user, session, role, isLoading: false });
+        // Set user/session immediately but keep loading until role is fetched
+        setState((prev) => ({ ...prev, user, session }));
+        const role = await fetchRole();
+        if (mounted) {
+          setState((prev) => ({ ...prev, role, isLoading: false }));
+        }
+      } else {
+        setState({ user: null, session: null, role: null, isLoading: false });
       }
     });
 
@@ -114,16 +109,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (error) return { error: error.message };
+
+    // Set session start timestamp for timeout enforcement
+    document.cookie = `session_start=${Date.now()}; path=/; max-age=${8 * 60 * 60}; SameSite=Lax`;
+
     return { error: null };
   };
 
-  const signOut = async () => {
-    // Clear client-side session (localStorage / memory)
-    await supabase.auth.signOut();
+  const signOut = () => {
+    // Fire-and-forget client-side cleanup — don't await, it can hang
+    // if the session hasn't hydrated yet.
+    supabase.auth.signOut().catch(() => {});
     setState({ user: null, session: null, role: null, isLoading: false });
 
     // Hit the server route to clear httpOnly session cookies,
-    // then redirect to home.
+    // then redirect to login. This is what actually matters.
     const form = document.createElement("form");
     form.method = "POST";
     form.action = "/auth/signout";

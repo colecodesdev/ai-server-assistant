@@ -1,10 +1,14 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+// 8 hours in milliseconds — hard session timeout for staff/admin
+const SESSION_MAX_AGE_MS = 8 * 60 * 60 * 1000;
+
 /**
  * Middleware: runs on every matched route.
  *
  * - Refreshes the Supabase session (keeps cookies alive)
+ * - Enforces session timeout (8-hour max)
  * - Protects /staff and /admin routes (redirect to login if unauthenticated)
  * - Enforces role-based access (admin routes require admin role)
  */
@@ -36,6 +40,23 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
+
+  // ── Session timeout ─────────────────────────────────────
+  if (user) {
+    const sessionStart = request.cookies.get("session_start")?.value;
+    if (sessionStart) {
+      const elapsed = Date.now() - Number(sessionStart);
+      if (elapsed > SESSION_MAX_AGE_MS) {
+        // Session expired — sign out and redirect to login
+        await supabase.auth.signOut();
+        const loginUrl = new URL("/auth/login", request.url);
+        loginUrl.searchParams.set("expired", "1");
+        const expiredResponse = NextResponse.redirect(loginUrl);
+        expiredResponse.cookies.delete("session_start");
+        return expiredResponse;
+      }
+    }
+  }
 
   // ── Protected routes ──────────────────────────────────────
   const isStaffRoute = pathname.startsWith("/staff");
@@ -77,7 +98,14 @@ export async function middleware(request: NextRequest) {
 
   // ── Redirect authenticated users away from login ──────────
   if (pathname === "/auth/login" && user) {
-    return NextResponse.redirect(new URL("/portal", request.url));
+    const { data: profile } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    const dest = profile?.role === "admin" ? "/admin" : "/staff";
+    return NextResponse.redirect(new URL(dest, request.url));
   }
 
   return response;
