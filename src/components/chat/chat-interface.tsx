@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, type FormEvent } from "react";
+import { renderMarkdown } from "@/lib/markdown";
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -250,7 +251,7 @@ export function ChatInterface({ mode }: ChatInterfaceProps) {
                     : "rounded-bl-sm bg-white/10 text-white"
               }`}
             >
-              {msg.content}
+              {msg.role === 'assistant' ? renderMarkdown(msg.content) : msg.content}
             </div>
           </div>
         ))}
@@ -262,7 +263,7 @@ export function ChatInterface({ mode }: ChatInterfaceProps) {
               OFHS Assistant
             </span>
             <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-white/10 px-4 py-2.5 text-sm leading-relaxed text-white">
-              {streamingContent}
+              {renderMarkdown(streamingContent)}
               <span className="ml-0.5 inline-block animate-pulse">▍</span>
             </div>
           </div>
