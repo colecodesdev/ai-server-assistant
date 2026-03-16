@@ -16,6 +16,7 @@ const staffNav: NavItem[] = [
 ];
 
 const adminNav: NavItem[] = [
+  { label: "Chat", href: "/staff", icon: "💬" },
   { label: "Dashboard", href: "/admin", icon: "📊" },
   { label: "Menus", href: "/admin/menus", icon: "📋" },
   { label: "Items", href: "/admin/items", icon: "🍽️" },
@@ -31,7 +32,7 @@ export function AppNav() {
   // While auth is loading, infer role from the current route (middleware already validated)
   const effectiveRole = role ?? (isAdminSection ? "admin" : "staff");
   const isAdmin = effectiveRole === "admin";
-  const navItems = isAdminSection ? adminNav : staffNav;
+  const navItems = isAdmin ? adminNav : staffNav;
 
   return (
     <nav className="flex h-14 items-center justify-between border-b border-white/10 bg-[#0d1f35] px-4">
@@ -70,16 +71,6 @@ export function AppNav() {
             );
           })}
         </div>
-
-        {/* Admin can toggle to staff view */}
-        {isAdmin && (
-          <Link
-            href={isAdminSection ? "/staff" : "/admin"}
-            className="rounded-md border border-white/10 px-2.5 py-1 text-xs text-white/40 transition-colors hover:border-white/20 hover:text-white/70"
-          >
-            {isAdminSection ? "Staff View" : "Admin Panel"}
-          </Link>
-        )}
       </div>
 
       {/* Right: user info + sign out */}
