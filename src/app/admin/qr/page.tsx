@@ -54,7 +54,7 @@ export default async function QRCodePage() {
             alt="QR code for guest chat"
             width={400}
             height={400}
-            className="h-auto w-full max-w-[400px]"
+            className="h-auto w-full max-w-100"
           />
         </div>
 

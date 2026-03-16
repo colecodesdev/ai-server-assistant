@@ -5,14 +5,14 @@ import { NextResponse, type NextRequest } from "next/server";
 const SESSION_MAX_AGE_MS = 8 * 60 * 60 * 1000;
 
 /**
- * Middleware: runs on every matched route.
+ * Proxy: runs on every matched route.
  *
  * - Refreshes the Supabase session (keeps cookies alive)
  * - Enforces session timeout (8-hour max)
  * - Protects /staff and /admin routes (redirect to login if unauthenticated)
  * - Enforces role-based access (admin routes require admin role)
  */
-export async function middleware(request: NextRequest) {
+export default async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
