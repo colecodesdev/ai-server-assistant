@@ -140,7 +140,7 @@ export default function LoginPage() {
         {/* Back to guest */}
         <div className="mt-6 text-center">
           <a
-            href="/chat"
+            href="/"
             className="text-sm text-white/40 transition-colors hover:text-white/70"
           >
             ← Browse as a guest
