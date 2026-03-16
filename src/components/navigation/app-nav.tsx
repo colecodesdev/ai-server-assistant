@@ -16,8 +16,8 @@ const staffNav: NavItem[] = [
 ];
 
 const adminNav: NavItem[] = [
-  { label: "Chat", href: "/staff", icon: "💬" },
   { label: "Dashboard", href: "/admin", icon: "📊" },
+  { label: "Chat", href: "/staff", icon: "💬" },
   { label: "Menus", href: "/admin/menus", icon: "📋" },
   { label: "Items", href: "/admin/items", icon: "🍽️" },
   { label: "Restaurant", href: "/admin/restaurant", icon: "🏠" },
