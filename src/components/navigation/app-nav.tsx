@@ -89,7 +89,7 @@ export function AppNav() {
         </div>
         <button
           onClick={() => signOut()}
-          className="rounded-md border border-white/10 px-2.5 py-1 text-xs text-white/40 transition-colors hover:border-white/20 hover:text-white/70"
+          className="rounded-md border border-white/10 px-2.5 py-1 text-xs text-white/40 transition-colors hover:border-white/20 hover:text-white/70 cursor-pointer"
         >
           Sign Out
         </button>
